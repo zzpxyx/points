@@ -18,3 +18,4 @@ server.pid
 # Ignore IntelliJ IDEA files
 .idea
 .bsp
+.attach_pid*
