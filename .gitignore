@@ -14,3 +14,7 @@ server.pid
 *.eml
 /dist/
 .cache
+
+# Ignore IntelliJ IDEA files
+.idea
+.bsp
