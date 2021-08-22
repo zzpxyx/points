@@ -9,6 +9,10 @@ import scala.collection.mutable
  * @param priorityQueue A mutable priority queue to store transactions.
  */
 class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
+  def this() = {
+    this(mutable.PriorityQueue())
+  }
+
   /**
    * Add a transaction.
    *
@@ -24,14 +28,14 @@ class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
    * @param points The number of points to use.
    * @return A list showing how many points are used for each payer.
    */
-  @throws[InsufficientPointsException]
+  @throws[InsufficientPointsException.type]
   def usePoints(points: Int): Seq[PayerPoints] = {
     useOldestPoints(points, Seq.empty).groupBy(_.payer).toSeq.map {
       case (payer, transactions) => PayerPoints(payer, transactions.map(_.points).sum)
     }
   }
 
-  @throws[InsufficientPointsException]
+  @throws[InsufficientPointsException.type]
   @tailrec
   private def useOldestPoints(points: Int, result: Seq[Transaction]): Seq[Transaction] = {
     points match {
@@ -39,7 +43,7 @@ class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
       case _ =>
         if (priorityQueue.isEmpty) {
           priorityQueue.enqueue(result: _*)
-          throw InsufficientPointsException()
+          throw InsufficientPointsException
         } else {
           val transaction = priorityQueue.dequeue()
           if (transaction.points > points) {

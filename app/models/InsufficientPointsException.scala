@@ -1,3 +1,3 @@
 package models
 
-case class InsufficientPointsException() extends Exception("Not enough points.")
+case object InsufficientPointsException extends Exception("Not enough points.")

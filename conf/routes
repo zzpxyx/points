@@ -1,0 +1,3 @@
+POST    /points/v1/transactions         controllers.PointsController.addTransaction()
+POST    /points/v1/balance              controllers.PointsController.usePoints()
+GET     /points/v1/balance              controllers.PointsController.getPointsPerPayer()
