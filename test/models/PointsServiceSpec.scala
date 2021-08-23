@@ -122,4 +122,25 @@ class PointsServiceSpec extends AnyWordSpec with Matchers {
       priorityQueue.size shouldBe 3
     }
   }
+
+  "all APIs" should {
+    "work together" in {
+      val payer1 = "payer1"
+      val payer2 = "payer2"
+      val timestamp = Instant.now()
+      val transaction1 = Transaction(payer1, 100, timestamp)
+      val transaction2 = Transaction(payer2, 200, timestamp.plusSeconds(1))
+      val transaction3 = Transaction(payer1, 300, timestamp.minusSeconds(1))
+      val service = new PointsService()
+      service.addTransaction(transaction1)
+      service.addTransaction(transaction2)
+      service.usePoints(150)
+      service.getPointsPerPayer shouldBe Map(payer2 -> 150)
+      service.addTransaction(transaction3)
+      service.getPointsPerPayer shouldBe Map(payer1 -> 300, payer2 -> 150)
+      service.getPointsPerPayer shouldBe Map(payer1 -> 300, payer2 -> 150) // Make sure get points is not destructive.
+      service.usePoints(450)
+      service.getPointsPerPayer shouldBe Map()
+    }
+  }
 }

@@ -2,6 +2,7 @@ package controllers
 
 import akka.actor.ActorSystem
 import models._
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.http.Status.{BAD_REQUEST, NO_CONTENT, OK}
@@ -11,9 +12,11 @@ import play.api.test.Helpers._
 
 import java.time.Instant
 import scala.collection.mutable
+import scala.concurrent.{ExecutionContextExecutor, Future}
 
-class PointsControllerSpec extends AnyWordSpec with Matchers {
+class PointsControllerSpec extends AnyWordSpec with Matchers with ScalaFutures {
   implicit val actorSystem: ActorSystem = ActorSystem()
+  implicit val ec: ExecutionContextExecutor = actorSystem.dispatcher
 
   "addTransaction" should {
     "return NO_CONTENT when adding a transaction successfully" in {
@@ -87,6 +90,37 @@ class PointsControllerSpec extends AnyWordSpec with Matchers {
       val result = call(controller.getPointsPerPayer, request)
       status(result) shouldBe OK
       contentAsJson(result).as[Map[String, Int]] shouldBe Map(payer1 -> 100, payer2 -> 200)
+    }
+  }
+
+  "Endpoints" should {
+    "work together when there are enough points" in {
+      val transactionBodySeq = Seq(
+        """{ "payer": "payer1", "points": 1000, "timestamp": "2020-11-02T14:00:00Z" }""",
+        """{ "payer": "payer2", "points": 200, "timestamp": "2020-10-31T11:00:00Z" }""",
+        """{ "payer": "payer1", "points": -200, "timestamp": "2020-10-31T15:00:00Z" }""",
+        """{ "payer": "payer3", "points": 10000, "timestamp": "2020-11-01T14:00:00Z" }""",
+        """{ "payer": "payer1", "points": 300, "timestamp": "2020-10-31T10:00:00Z" }""")
+      val service = new PointsService()
+      val controller = new PointsController(stubControllerComponents(), service)
+      val result = for {
+        _ <- transactionBodySeq.foldLeft(Future.successful(())) { (future, body) =>
+          future.flatMap { _ =>
+            val request = FakeRequest(POST, "/points/v1/transactions").withJsonBody(Json.parse(body))
+            call(controller.addTransaction(), request).map(_ => ())
+          }
+        }
+        _ <- {
+          val usePointsRequest = UsePointsRequest(5000)
+          val request = FakeRequest(POST, "/points/v1/balance").withJsonBody(Json.toJson(usePointsRequest))
+          call(controller.usePoints(), request)
+        }
+        balance <- {
+          val request = FakeRequest(GET, "/points/v1/balance")
+          call(controller.getPointsPerPayer, request)
+        }
+      } yield balance
+      contentAsJson(result).as[Map[String, Int]] shouldBe Map("payer1" -> 1000, "payer3" -> 5300)
     }
   }
 }
