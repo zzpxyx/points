@@ -1,5 +1,7 @@
 package models
 
+import models.exception.InsufficientPointsException
+import models.service.PointsService
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 

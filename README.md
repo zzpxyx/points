@@ -8,7 +8,11 @@ Write a simple web service for bookkeeping points per payer. Points are added vi
 
 ## Design Decisions
 
-I've decided to use a priority queue for an easier implementation. In the real world, we'll probably want to use some persistent storage. I've also allowed a payer to have a total number of negative points temporarily since a later transaction might make up for it. Similarly, a transaction with zero points is also allowed.
+I've decided to use a priority queue for an easier implementation. In the real world, we'll probably want to use some persistent storage.
+
+A payer is allowed to have a total number of negative points temporarily since a later transaction might make up for it. Similarly, a transaction with zero points is also allowed.
+
+If there aren't enough points to use, the response will be 400 Bad Request with an error message.
 
 ## RESTful API
 

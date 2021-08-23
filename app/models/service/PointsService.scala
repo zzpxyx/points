@@ -1,4 +1,7 @@
-package models
+package models.service
+
+import models.exception.InsufficientPointsException
+import models.{PayerPoints, Transaction}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -73,7 +76,6 @@ class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
       None
     } else {
       val transaction = priorityQueue.dequeue()
-      // pointsPerPayer and priorityQueue should be synchronized, so the key should exist
       pointsPerPayer.update(transaction.payer, pointsPerPayer(transaction.payer) - transaction.points)
       Some(transaction)
     }

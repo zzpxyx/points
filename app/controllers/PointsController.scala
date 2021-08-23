@@ -1,6 +1,8 @@
 package controllers
 
 import models._
+import models.exception.{InsufficientPointsException, InvalidJsonException}
+import models.service.PointsService
 import play.api.Logger
 import play.api.libs.json.{JsResult, JsValue, Json}
 import play.api.mvc._

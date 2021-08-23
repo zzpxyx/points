@@ -2,6 +2,8 @@ package controllers
 
 import akka.actor.ActorSystem
 import models._
+import models.exception.{InsufficientPointsException, InvalidJsonException}
+import models.service.PointsService
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
