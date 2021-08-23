@@ -33,14 +33,16 @@ class PointsServiceSpec extends AnyWordSpec with Matchers {
     "use the oldest points first" in {
       val payer1 = "payer1"
       val payer2 = "payer2"
+      val payer3 = "payer3"
       val timestamp = Instant.now()
       val transaction1 = Transaction(payer2, 200, timestamp)
       val transaction2 = Transaction(payer1, 100, timestamp.minusSeconds(1))
-      val priorityQueue = mutable.PriorityQueue[Transaction](transaction1, transaction2)
+      val transaction3 = Transaction(payer3, 300, timestamp.plusSeconds(1))
+      val priorityQueue = mutable.PriorityQueue[Transaction](transaction1, transaction2, transaction3)
       val service = new PointsService(priorityQueue)
-      val result = service.usePoints(150)
-      result shouldBe Seq(PayerPoints(payer1, 100), PayerPoints(payer2, 50))
-      priorityQueue.head shouldBe Transaction(payer2, 150, timestamp)
+      val result = service.usePoints(400)
+      result shouldBe Seq(PayerPoints(payer1, -100), PayerPoints(payer2, -200), PayerPoints(payer3, -100))
+      priorityQueue.head shouldBe transaction3.copy(points = 200)
     }
     "use up all the points if necessary" in {
       val payer = "payer"
@@ -50,7 +52,7 @@ class PointsServiceSpec extends AnyWordSpec with Matchers {
       val priorityQueue = mutable.PriorityQueue[Transaction](transaction1, transaction2)
       val service = new PointsService(priorityQueue)
       val result = service.usePoints(300)
-      result shouldBe Seq(PayerPoints(payer, 300))
+      result shouldBe Seq(PayerPoints(payer, -300))
       priorityQueue.isEmpty shouldBe true
     }
     "work even if some transactions have zero points" in {
@@ -64,7 +66,7 @@ class PointsServiceSpec extends AnyWordSpec with Matchers {
       val priorityQueue = mutable.PriorityQueue[Transaction](transaction1, transaction2, transaction3)
       val service = new PointsService(priorityQueue)
       val result = service.usePoints(100)
-      result shouldBe Seq(PayerPoints(payer1, 0), PayerPoints(payer2, 100))
+      result shouldBe Seq(PayerPoints(payer1, 0), PayerPoints(payer2, -100))
       priorityQueue.head shouldBe transaction3
     }
     "use arbitrary one if two transactions have the same timestamp" in {
@@ -79,7 +81,10 @@ class PointsServiceSpec extends AnyWordSpec with Matchers {
       val service2 = new PointsService(priorityQueue2)
       val result1 = service1.usePoints(150)
       val result2 = service2.usePoints(150)
-      val possibleResults = Set(Seq(PayerPoints(payer1, 100), PayerPoints(payer2, 50)), Seq(PayerPoints(payer2, 150)))
+      val possibleResults = Set(
+        Seq(PayerPoints(payer1, -100), PayerPoints(payer2, -50)),
+        Seq(PayerPoints(payer2, -150))
+      )
       Set(result1, result2) shouldBe possibleResults
     }
     "throw InsufficientPointException if there is not enough points" in {
@@ -130,17 +135,17 @@ class PointsServiceSpec extends AnyWordSpec with Matchers {
       val timestamp = Instant.now()
       val transaction1 = Transaction(payer1, 100, timestamp)
       val transaction2 = Transaction(payer2, 200, timestamp.plusSeconds(1))
-      val transaction3 = Transaction(payer1, 300, timestamp.minusSeconds(1))
       val service = new PointsService()
       service.addTransaction(transaction1)
       service.addTransaction(transaction2)
-      service.usePoints(150)
+      service.usePoints(150) shouldBe Seq(PayerPoints(payer1, -100), PayerPoints(payer2, -50))
       service.getPointsPerPayer shouldBe Map(payer1 -> 0, payer2 -> 150)
+      val transaction3 = Transaction(payer1, 300, timestamp.minusSeconds(1))
       service.addTransaction(transaction3)
       service.getPointsPerPayer shouldBe Map(payer1 -> 300, payer2 -> 150)
       service.getPointsPerPayer shouldBe Map(payer1 -> 300, payer2 -> 150) // Make sure get points is not destructive.
-      service.usePoints(450)
-      service.getPointsPerPayer shouldBe Map(payer1 -> 0, payer2 -> 0)
+      service.usePoints(300) shouldBe Seq(PayerPoints(payer1, -300))
+      service.getPointsPerPayer shouldBe Map(payer1 -> 0, payer2 -> 150)
     }
   }
 }

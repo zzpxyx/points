@@ -9,9 +9,10 @@ import scala.collection.mutable
  * @param priorityQueue A mutable priority queue to store transactions.
  */
 class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
-  private val pointsPerPayer: mutable.Map[String, Int] = mutable.Map() ++ priorityQueue.toSeq.groupBy(_.payer).map {
-    case (payer, transactionSeq) => payer -> transactionSeq.map(_.points).sum
-  }
+  private val pointsPerPayer: mutable.Map[String, Int] = mutable.Map().withDefaultValue(0) ++
+    priorityQueue.toSeq.groupBy(_.payer).map {
+      case (payer, transactionSeq) => payer -> transactionSeq.map(_.points).sum
+    }
 
   def this() = {
     this(mutable.PriorityQueue())
@@ -24,7 +25,7 @@ class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
    */
   def addTransaction(transaction: Transaction): Unit = {
     priorityQueue.enqueue(transaction)
-    pointsPerPayer.update(transaction.payer, pointsPerPayer.getOrElse(transaction.payer, 0) + transaction.points)
+    pointsPerPayer.update(transaction.payer, pointsPerPayer(transaction.payer) + transaction.points)
   }
 
   /**
@@ -35,8 +36,14 @@ class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
    */
   @throws[InsufficientPointsException.type]
   def usePoints(points: Int): Seq[PayerPoints] = {
-    useOldestPoints(points, Seq.empty).groupBy(_.payer).toSeq.map {
-      case (payer, transactions) => PayerPoints(payer, transactions.map(_.points).sum)
+    // Use LinkedHashMap here to preserve the order during aggregation.
+    val linkedHashMap = mutable.LinkedHashMap[String, mutable.ArrayBuffer[Transaction]]()
+      .withDefault(_ => mutable.ArrayBuffer[Transaction]())
+    useOldestPoints(points, Seq.empty).foreach { transaction =>
+      linkedHashMap.update(transaction.payer, linkedHashMap(transaction.payer) :+ transaction)
+    }
+    linkedHashMap.toSeq.map {
+      case (payer, arrayBuffer) => PayerPoints(payer, -arrayBuffer.map(_.points).sum)
     }
   }
 

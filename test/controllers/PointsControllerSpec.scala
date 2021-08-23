@@ -7,6 +7,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import play.api.http.Status.{BAD_REQUEST, NO_CONTENT, OK}
 import play.api.libs.json.Json
+import play.api.mvc.Results.NoContent
 import play.api.test.FakeRequest
 import play.api.test.Helpers._
 
@@ -51,7 +52,7 @@ class PointsControllerSpec extends AnyWordSpec with Matchers with ScalaFutures {
       val request = FakeRequest(POST, "/points/v1/balance").withJsonBody(Json.toJson(usePointsRequest))
       val result = call(controller.usePoints(), request)
       status(result) shouldBe OK
-      contentAsJson(result).as[Seq[PayerPoints]] shouldBe Seq(PayerPoints(payer1, 100), PayerPoints(payer2, 50))
+      contentAsJson(result).as[Seq[PayerPoints]] shouldBe Seq(PayerPoints(payer1, -100), PayerPoints(payer2, -50))
     }
     "return BAD_REQUEST if there are not enough points" in {
       val usePointsRequest = UsePointsRequest(400)
@@ -103,24 +104,23 @@ class PointsControllerSpec extends AnyWordSpec with Matchers with ScalaFutures {
         """{ "payer": "payer1", "points": 300, "timestamp": "2020-10-31T10:00:00Z" }""")
       val service = new PointsService()
       val controller = new PointsController(stubControllerComponents(), service)
-      val result = for {
-        _ <- transactionBodySeq.foldLeft(Future.successful(())) { (future, body) =>
-          future.flatMap { _ =>
-            val request = FakeRequest(POST, "/points/v1/transactions").withJsonBody(Json.parse(body))
-            call(controller.addTransaction(), request).map(_ => ())
-          }
+      val usePointResult = transactionBodySeq.foldLeft(Future.successful(NoContent)) { (future, body) =>
+        future.flatMap { _ =>
+          val request = FakeRequest(POST, "/points/v1/transactions").withJsonBody(Json.parse(body))
+          call(controller.addTransaction(), request)
         }
-        _ <- {
-          val usePointsRequest = UsePointsRequest(5000)
-          val request = FakeRequest(POST, "/points/v1/balance").withJsonBody(Json.toJson(usePointsRequest))
-          call(controller.usePoints(), request)
-        }
-        balance <- {
-          val request = FakeRequest(GET, "/points/v1/balance")
-          call(controller.getPointsPerPayer, request)
-        }
-      } yield balance
-      contentAsJson(result).as[Map[String, Int]] shouldBe Map("payer1" -> 1000, "payer2" -> 0, "payer3" -> 5300)
+      }.flatMap { _ =>
+        val usePointsRequest = UsePointsRequest(5000)
+        val request = FakeRequest(POST, "/points/v1/balance").withJsonBody(Json.toJson(usePointsRequest))
+        call(controller.usePoints(), request)
+      }
+      contentAsJson(usePointResult).as[Seq[PayerPoints]] shouldBe
+        Seq(PayerPoints("payer1", -100), PayerPoints("payer2", -200), PayerPoints("payer3", -4700))
+      val balance = {
+        val request = FakeRequest(GET, "/points/v1/balance")
+        call(controller.getPointsPerPayer, request)
+      }
+      contentAsJson(balance).as[Map[String, Int]] shouldBe Map("payer1" -> 1000, "payer2" -> 0, "payer3" -> 5300)
     }
   }
 }
