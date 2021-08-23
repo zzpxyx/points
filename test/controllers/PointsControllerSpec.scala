@@ -120,7 +120,7 @@ class PointsControllerSpec extends AnyWordSpec with Matchers with ScalaFutures {
           call(controller.getPointsPerPayer, request)
         }
       } yield balance
-      contentAsJson(result).as[Map[String, Int]] shouldBe Map("payer1" -> 1000, "payer3" -> 5300)
+      contentAsJson(result).as[Map[String, Int]] shouldBe Map("payer1" -> 1000, "payer2" -> 0, "payer3" -> 5300)
     }
   }
 }

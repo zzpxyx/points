@@ -32,7 +32,8 @@ class PointsController @Inject()(cc: ControllerComponents, pointsService: Points
   }
 
   def getPointsPerPayer: Action[AnyContent] = Action.async {
-    Future.successful[Result](Ok(Json.toJson(pointsService.getPointsPerPayer)))
+    val pointsPerPayerMap = pointsService.getPointsPerPayer
+    Future.successful(Ok(Json.toJson(pointsPerPayerMap)))
   }
 
   private def recoveryPf: PartialFunction[Throwable, Result] = {

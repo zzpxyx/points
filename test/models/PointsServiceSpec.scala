@@ -135,12 +135,12 @@ class PointsServiceSpec extends AnyWordSpec with Matchers {
       service.addTransaction(transaction1)
       service.addTransaction(transaction2)
       service.usePoints(150)
-      service.getPointsPerPayer shouldBe Map(payer2 -> 150)
+      service.getPointsPerPayer shouldBe Map(payer1 -> 0, payer2 -> 150)
       service.addTransaction(transaction3)
       service.getPointsPerPayer shouldBe Map(payer1 -> 300, payer2 -> 150)
       service.getPointsPerPayer shouldBe Map(payer1 -> 300, payer2 -> 150) // Make sure get points is not destructive.
       service.usePoints(450)
-      service.getPointsPerPayer shouldBe Map()
+      service.getPointsPerPayer shouldBe Map(payer1 -> 0, payer2 -> 0)
     }
   }
 }

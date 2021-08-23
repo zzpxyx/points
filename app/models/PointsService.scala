@@ -9,6 +9,10 @@ import scala.collection.mutable
  * @param priorityQueue A mutable priority queue to store transactions.
  */
 class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
+  private val pointsPerPayer: mutable.Map[String, Int] = mutable.Map() ++ priorityQueue.toSeq.groupBy(_.payer).map {
+    case (payer, transactionSeq) => payer -> transactionSeq.map(_.points).sum
+  }
+
   def this() = {
     this(mutable.PriorityQueue())
   }
@@ -20,6 +24,7 @@ class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
    */
   def addTransaction(transaction: Transaction): Unit = {
     priorityQueue.enqueue(transaction)
+    pointsPerPayer.update(transaction.payer, pointsPerPayer.getOrElse(transaction.payer, 0) + transaction.points)
   }
 
   /**
@@ -41,18 +46,29 @@ class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
     points match {
       case 0 => result
       case _ =>
-        if (priorityQueue.isEmpty) {
-          priorityQueue.enqueue(result: _*)
-          throw InsufficientPointsException
-        } else {
-          val transaction = priorityQueue.dequeue()
-          if (transaction.points > points) {
-            priorityQueue.enqueue(transaction.copy(points = transaction.points - points))
-            result :+ transaction.copy(points = points)
-          } else {
-            useOldestPoints(points - transaction.points, result :+ transaction)
-          }
+        removeOldestTransaction() match {
+          case Some(transaction) =>
+            if (transaction.points > points) {
+              addTransaction(transaction.copy(points = transaction.points - points))
+              result :+ transaction.copy(points = points)
+            } else {
+              useOldestPoints(points - transaction.points, result :+ transaction)
+            }
+          case None =>
+            result.foreach(addTransaction)
+            throw InsufficientPointsException
         }
+    }
+  }
+
+  private def removeOldestTransaction(): Option[Transaction] = {
+    if (priorityQueue.isEmpty) {
+      None
+    } else {
+      val transaction = priorityQueue.dequeue()
+      // pointsPerPayer and priorityQueue should be synchronized, so the key should exist
+      pointsPerPayer.update(transaction.payer, pointsPerPayer(transaction.payer) - transaction.points)
+      Some(transaction)
     }
   }
 
@@ -61,9 +77,5 @@ class PointsService(priorityQueue: mutable.PriorityQueue[Transaction]) {
    *
    * @return A map from payer to its total points.
    */
-  def getPointsPerPayer: Map[String, Int] = {
-    priorityQueue.toSeq.groupBy(_.payer).map {
-      case (payer, transactionSeq) => payer -> transactionSeq.map(_.points).sum
-    }
-  }
+  def getPointsPerPayer: Map[String, Int] = pointsPerPayer.toMap
 }
